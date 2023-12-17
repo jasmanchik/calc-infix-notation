@@ -10,10 +10,10 @@ var (
 )
 
 type Converter struct {
-	stack stack.Stack
+	stack *stack.Stack
 }
 
-func NewConverter(stack stack.Stack) *Converter {
+func NewConverter(stack *stack.Stack) *Converter {
 	return &Converter{stack: stack}
 }
 

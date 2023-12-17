@@ -10,8 +10,8 @@ type Stack struct {
 	size int
 }
 
-func New(maxSize int) Stack {
-	return Stack{
+func New(maxSize int) *Stack {
+	return &Stack{
 		list: make([]string, maxSize),
 		len:  0,
 		size: maxSize,
