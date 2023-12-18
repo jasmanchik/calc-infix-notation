@@ -3,13 +3,22 @@ package calculator
 import (
 	"CalcInfixNotation/internal/converter"
 	"CalcInfixNotation/internal/stack"
+	"context"
 	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-func calculatePostfix(expression string) (float64, error) {
+type Calculator struct {
+	wg     *sync.WaitGroup
+	ctx    context.Context
+	stack  *stack.Stack
+	logger *slog.Logger
+}
+
+func (c *Calculator) calculatePostfix(expression string) (float64, error) {
 	s := make([]float64, 0)
 
 	tokens := strings.Fields(expression)
@@ -58,20 +67,33 @@ func calculatePostfix(expression string) (float64, error) {
 	return s[0], nil
 }
 
-func Calculate(logger *slog.Logger, stack *stack.Stack, expressionChan chan string, outChan chan float64) {
-	c := converter.NewConverter(stack)
-	for expression := range expressionChan {
-		postfix, err := c.ConvertInfixToPostfix(expression)
-		if err != nil {
-			logger.Error("can't convert infix to postfix", slog.String("expression", expression))
-			continue
-		}
+func (c *Calculator) Calculate(expressionChan chan string, outChan chan float64) {
+	defer c.wg.Done()
+	const op = "postfix.Calculate"
+	conv := converter.NewConverter(c.stack)
 
-		result, err := calculatePostfix(postfix)
-		if err != nil {
-			logger.Error("can't calculate postfix expression", slog.String("postfix", postfix))
-			continue
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case expression := <-expressionChan:
+			postfix, err := conv.ConvertInfixToPostfix(expression)
+			if err != nil {
+				c.logger.With(slog.String("op", op)).Error("can't convert infix to postfix", slog.String("expression", expression))
+				break
+			}
+			result, err := c.calculatePostfix(postfix)
+			if err != nil {
+				c.logger.With(slog.String("op", op)).Error("can't calculate postfix expression", slog.String("postfix", postfix))
+				break
+			}
+			outChan <- result
+		default:
 		}
-		outChan <- result
 	}
+}
+
+func NewCalculator(ctx context.Context, wg *sync.WaitGroup, logger *slog.Logger) *Calculator {
+	s := stack.New(50)
+	return &Calculator{ctx: ctx, wg: wg, stack: s, logger: logger}
 }

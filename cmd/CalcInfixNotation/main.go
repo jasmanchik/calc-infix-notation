@@ -2,12 +2,12 @@ package main
 
 import (
 	"CalcInfixNotation/internal/calculator"
-	"CalcInfixNotation/internal/stack"
 	"bufio"
 	"context"
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
@@ -15,45 +15,75 @@ func main() {
 	logger := setupLogger()
 	logger.Info("starting application")
 
+	var wg sync.WaitGroup
+	wg.Add(3)
 	ctx, cancel := context.WithCancel(context.Background())
-
 	expressionChan := make(chan string, 10)
 	outputChan := make(chan float64, 10)
-	go scanInput(ctx, logger, expressionChan)
 
-	s := stack.New(50)
-	go calculator.Calculate(ctx, logger, s, expressionChan, outputChan)
+	go scanInput(ctx, &wg, logger, expressionChan)
 
-	go printResults(ctx, logger, outputChan)
+	calc := calculator.NewCalculator(ctx, &wg, logger)
+	go calc.Calculate(expressionChan, outputChan)
+
+	go printResults(ctx, &wg, logger, outputChan)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
-	sig := <-stop
-	close(expressionChan)
-	close(outputChan)
-	cancel()
-	logger.Info("stopping aplication", slog.String("signal", sig.String()))
-	logger.Info("application stopped")
-}
-
-func printResults(ctx context.Context, logger *slog.Logger, outputChan chan float64) {
-	var result float64
 	select {
-	case <-ctx.Done():
-		break
-	case result = <-outputChan:
-		logger.With("app", "main").Info("calculated:", slog.Float64("result", result))
-	default:
+	case sig := <-stop:
+		logger.Info("stopping aplication", slog.String("signal", sig.String()))
+		close(expressionChan)
+		close(outputChan)
+		cancel()
+		wg.Wait()
+		logger.Info("application stopped")
 	}
 }
 
-func scanInput(logger *slog.Logger, ch chan string) {
+func printResults(ctx context.Context, wg *sync.WaitGroup, logger *slog.Logger, outputChan chan float64) {
+	defer wg.Done()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case result := <-outputChan:
+			logger.With("app", "main").Info("calculated:", slog.Float64("result", result))
+		default:
+		}
+	}
+}
+
+func scanInput(ctx context.Context, wg *sync.WaitGroup, logger *slog.Logger, ch chan string) {
+	defer wg.Done()
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		logger.With("app", "main").Info("Введите арифметическое выражение: ")
-		scanner.Scan()
-		expression := scanner.Text()
-		ch <- expression
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			newInput := make(chan string)
+			go func() {
+				if scanner.Scan() {
+					newInput <- scanner.Text()
+				} else {
+					close(newInput)
+				}
+			}()
+
+			select {
+			case <-ctx.Done():
+				return
+			case expression, ok := <-newInput:
+				if !ok {
+					return
+				}
+				ch <- expression
+			}
+		}
 	}
 }
 
