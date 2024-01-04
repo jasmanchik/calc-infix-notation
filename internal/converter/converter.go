@@ -2,12 +2,10 @@ package converter
 
 import (
 	"CalcInfixNotation/internal/stack"
-	"log/slog"
 )
 
 type Converter struct {
-	stack  *stack.Stack
-	logger *slog.Logger
+	stack *stack.Stack
 }
 
 func NewConverter(stack *stack.Stack) *Converter {
