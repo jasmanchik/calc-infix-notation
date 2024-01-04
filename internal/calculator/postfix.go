@@ -3,7 +3,6 @@ package calculator
 import (
 	"CalcInfixNotation/internal/converter"
 	"CalcInfixNotation/internal/stack"
-	"context"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 
 type Calculator struct {
 	wg     *sync.WaitGroup
-	ctx    context.Context
 	stack  *stack.Stack
 	logger *slog.Logger
 }
@@ -67,16 +65,17 @@ func (c *Calculator) calculatePostfix(expression string) (float64, error) {
 	return s[0], nil
 }
 
-func (c *Calculator) Calculate(expressionChan chan string, outChan chan float64) {
+func (c *Calculator) Calculate(inputChan chan string, outChan chan float64) {
 	defer c.wg.Done()
 	const op = "postfix.Calculate"
 	conv := converter.NewConverter(c.stack)
 
 	for {
 		select {
-		case <-c.ctx.Done():
-			return
-		case expression := <-expressionChan:
+		case expression, ok := <-inputChan:
+			if !ok {
+				return
+			}
 			postfix, err := conv.ConvertInfixToPostfix(expression)
 			if err != nil {
 				c.logger.With(slog.String("op", op)).Error("can't convert infix to postfix", slog.String("expression", expression))
@@ -93,7 +92,7 @@ func (c *Calculator) Calculate(expressionChan chan string, outChan chan float64)
 	}
 }
 
-func NewCalculator(ctx context.Context, wg *sync.WaitGroup, logger *slog.Logger) *Calculator {
-	s := stack.New(50)
-	return &Calculator{ctx: ctx, wg: wg, stack: s, logger: logger}
+func NewCalculator(wg *sync.WaitGroup, logger *slog.Logger) *Calculator {
+	s := stack.New()
+	return &Calculator{wg: wg, stack: s, logger: logger}
 }

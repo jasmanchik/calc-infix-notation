@@ -2,12 +2,7 @@ package converter
 
 import (
 	"CalcInfixNotation/internal/stack"
-	"errors"
 	"log/slog"
-)
-
-var (
-	fullStackError = errors.New("stack is full")
 )
 
 type Converter struct {
@@ -30,9 +25,7 @@ func (c *Converter) ConvertInfixToPostfix(infix string) (string, error) {
 				postfix += " "
 			}
 		} else if ch == '(' {
-			if pushed := c.stack.Push(string(ch)); !pushed {
-				return "", fullStackError
-			}
+			c.stack.Push(string(ch))
 		} else if ch == ')' {
 			for top, exist := c.stack.Top(); exist && top != "("; top, exist = c.stack.Top() {
 				op, _ := c.stack.Pop()
@@ -41,21 +34,15 @@ func (c *Converter) ConvertInfixToPostfix(infix string) (string, error) {
 			c.stack.Pop() // remove '(' from stack
 		} else {
 			if lastOperator, exist := c.stack.Top(); !exist {
-				if pushed := c.stack.Push(string(ch)); !pushed {
-					return "", fullStackError
-				}
+				c.stack.Push(string(ch))
 			} else if c.getOperatorPriority(lastOperator) < c.getOperatorPriority(string(ch)) {
-				if pushed := c.stack.Push(string(ch)); !pushed {
-					return "", fullStackError
-				}
+				c.stack.Push(string(ch))
 			} else {
 				for top, exist := c.stack.Top(); exist && c.getOperatorPriority(top) >= c.getOperatorPriority(string(ch)); top, exist = c.stack.Top() {
 					op, _ := c.stack.Pop()
 					postfix += string(op) + " "
 				}
-				if pushed := c.stack.Push(string(ch)); !pushed {
-					return "", fullStackError
-				}
+				c.stack.Push(string(ch))
 			}
 		}
 	}

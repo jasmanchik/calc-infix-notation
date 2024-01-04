@@ -7,33 +7,22 @@ import (
 type Stack struct {
 	list []string
 	len  int
-	size int
 }
 
-func New(maxSize int) *Stack {
+func New() *Stack {
 	return &Stack{
-		list: make([]string, maxSize),
+		list: make([]string, 10),
 		len:  0,
-		size: maxSize,
 	}
-}
-
-func (s *Stack) IsFull() bool {
-	return s.len == s.size
 }
 
 func (s *Stack) IsEmpty() bool {
 	return s.len == 0
 }
 
-func (s *Stack) Push(element string) bool {
-	if s.IsFull() {
-		return false
-	}
-
+func (s *Stack) Push(element string) {
 	s.list[s.len] = element
 	s.len += 1
-	return true
 }
 
 func (s *Stack) Pop() (string, bool) {
