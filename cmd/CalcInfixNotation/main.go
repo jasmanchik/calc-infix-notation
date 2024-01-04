@@ -25,8 +25,8 @@ func main() {
 
 	go scanInput(ctx, &wg, logger, inputChan)
 
-	calc := calculator.NewCalculator(&wg, logger)
-	go calc.Calculate(inputChan, outputChan)
+	calc := calculator.NewCalculator(logger)
+	go calc.Calculate(&wg, inputChan, outputChan)
 
 	go printResults(ctx, &wg, logger, outputChan)
 

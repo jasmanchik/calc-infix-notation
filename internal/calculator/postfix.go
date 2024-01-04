@@ -5,13 +5,13 @@ import (
 	"CalcInfixNotation/internal/stack"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
 )
 
 type Calculator struct {
-	wg     *sync.WaitGroup
 	stack  *stack.Stack
 	logger *slog.Logger
 }
@@ -23,7 +23,7 @@ func (c *Calculator) calculatePostfix(expression string) (float64, error) {
 
 	for _, token := range tokens {
 		switch token {
-		case "+", "-", "*", "/":
+		case "+", "-", "*", "/", "^":
 			if len(s) < 2 {
 				return 0, fmt.Errorf("not enough operands %s", token)
 			}
@@ -45,6 +45,9 @@ func (c *Calculator) calculatePostfix(expression string) (float64, error) {
 					return 0, fmt.Errorf("divizion by zero")
 				}
 				result = operand1 / operand2
+
+			case "^":
+				result = math.Pow(operand1, operand2)
 			}
 
 			s = append(s, result)
@@ -65,8 +68,8 @@ func (c *Calculator) calculatePostfix(expression string) (float64, error) {
 	return s[0], nil
 }
 
-func (c *Calculator) Calculate(inputChan chan string, outChan chan float64) {
-	defer c.wg.Done()
+func (c *Calculator) Calculate(wg *sync.WaitGroup, inputChan chan string, outChan chan float64) {
+	defer wg.Done()
 	const op = "postfix.Calculate"
 	conv := converter.NewConverter(c.stack)
 
@@ -83,7 +86,7 @@ func (c *Calculator) Calculate(inputChan chan string, outChan chan float64) {
 			}
 			result, err := c.calculatePostfix(postfix)
 			if err != nil {
-				c.logger.With(slog.String("op", op)).Error("can't calculate postfix expression", slog.String("postfix", postfix))
+				c.logger.With(slog.String("op", op)).Error("can't calculate postfix expression", slog.String("postfix", postfix), slog.String("error", err.Error()))
 				break
 			}
 			outChan <- result
@@ -92,7 +95,7 @@ func (c *Calculator) Calculate(inputChan chan string, outChan chan float64) {
 	}
 }
 
-func NewCalculator(wg *sync.WaitGroup, logger *slog.Logger) *Calculator {
+func NewCalculator(logger *slog.Logger) *Calculator {
 	s := stack.New()
-	return &Calculator{wg: wg, stack: s, logger: logger}
+	return &Calculator{stack: s, logger: logger}
 }

@@ -71,5 +71,9 @@ func (c *Converter) isOperand(ch rune) bool {
 	if ch >= '0' && ch <= '9' {
 		return true
 	}
+	if ch >= 'a' && ch <= 'z' {
+		return true
+	}
+
 	return false
 }
